@@ -1,0 +1,8 @@
+/*Look in Data/Gui/Language/English/inventoryItemDescriptions.json for info on how to set up this file*/
+{
+	"193026e6-84a5-49e8-8f6e-04dc14de5612":
+	{
+		"title": "Electromagnet",
+		"description": "When this part is powered, it attracts other powered Electromagnets. Power it using a logic signal or an engine. By using an engine you can change the strength of the magnet. Press [E] to cycle through magnet modes.\n\nMade by TechnologicNick"
+	}
+}
