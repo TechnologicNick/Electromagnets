@@ -1,12 +1,13 @@
 -- Electromagnet.lua --
+dofile("$SURVIVAL_DATA/Scripts/game/survival_items.lua")
 
 --print("Electromagnet init")
 
 Electromagnet = class( nil )
-Electromagnet.maxChildCount = 0
+Electromagnet.maxChildCount = 1
 Electromagnet.maxParentCount = 1
 Electromagnet.connectionInput = sm.interactable.connectionType.logic + sm.interactable.connectionType.bearing
-Electromagnet.connectionOutput = sm.interactable.connectionType.none
+Electromagnet.connectionOutput = sm.interactable.connectionType.electricity + sm.interactable.connectionType.gasoline
 Electromagnet.colorNormal = sm.color.new( 0xff3333ff ) --sm.color.new( 0x404040ff )
 Electromagnet.colorHighlight = sm.color.new( 0xff5555ff ) --sm.color.new( 0x606060ff )
 Electromagnet.poseWeightCount = 1
@@ -14,6 +15,24 @@ Electromagnet.magnetStrength = math.sqrt(1000 * 40) -- 1000 newton per second wh
 
 -- Global table to keep track of all electromagnets
 g_electromagnets = g_electromagnets or {}
+
+local g_engineUuids = {
+    [tostring(obj_interactive_gasengine_01)] = true,
+    [tostring(obj_interactive_gasengine_02)] = true,
+    [tostring(obj_interactive_gasengine_03)] = true,
+    [tostring(obj_interactive_gasengine_04)] = true,
+    [tostring(obj_interactive_gasengine_05)] = true,
+    [tostring(obj_interactive_electricengine_01)] = true,
+    [tostring(obj_interactive_electricengine_02)] = true,
+    [tostring(obj_interactive_electricengine_03)] = true,
+    [tostring(obj_interactive_electricengine_04)] = true,
+    [tostring(obj_interactive_electricengine_05)] = true,
+}
+
+local g_engineConnectionTypes = {
+    [sm.interactable.connectionType.logic + sm.interactable.connectionType.power + sm.interactable.connectionType.gasoline] = true,
+    [sm.interactable.connectionType.logic + sm.interactable.connectionType.power + sm.interactable.connectionType.electricity] = true,
+}
 
 function Electromagnet.server_onCreate( self )
     --print("[Electromagnet] server_onCreate")
@@ -25,6 +44,15 @@ function Electromagnet.server_onCreate( self )
 end
 
 function Electromagnet.server_onFixedUpdate( self, timeStep )
+    -- Workaround for connecting survival mode engines to the electromagnet
+    for _, child in ipairs(self.interactable:getChildren()) do
+        self.interactable:disconnect(child)
+
+        if g_engineUuids[tostring(child.shape.shapeUuid)] then
+            child:connect(self.interactable)
+        end
+    end
+
     local parent = self.interactable:getSingleParent()
     if parent then
         
@@ -104,6 +132,10 @@ function Electromagnet.client_onFixedUpdate( self, timestamp )
     --print(self.parentPoseWeight)
 end
 
+function Electromagnet.client_getAvailableChildConnectionCount( self, connectionType )
+    return g_engineConnectionTypes[connectionType] and 1 or 0
+end
+
 function Electromagnet.server_updateUvFrameIndex( self, active )
     local polarityOptions = {all = 0, north = 1, south = 2}
     
@@ -149,12 +181,15 @@ function Electromagnet.getForceMultiplier( self )
     
     local parent = self.interactable:getSingleParent()
     
-    if parent:getType() == "electricEngine" or parent:getType() == "gasEngine" then
-        local parentParent = parent:getSingleParent()
-        if parentParent then
-            if parentParent.active then
-                fm = self.parentPoseWeight
-            end
+    if parent:getType() == "electricEngine" or parent:getType() == "gasEngine" or g_engineUuids[tostring(parent.shape.shapeUuid)] then
+        local parentParentsAnyActive = false
+        local parentParentsAllActive = true
+        for _, parentParent in ipairs(parent:getParents()) do
+            parentParentsAnyActive = parentParentsAnyActive or parentParent.active
+            parentParentsAllActive = parentParentsAllActive and parentParent.active
+        end
+        if parentParentsAnyActive and parentParentsAllActive then
+            fm = self.parentPoseWeight
         end
     elseif parent:getType() == "scripted" then
         if parent:getPower() ~= 0 then
